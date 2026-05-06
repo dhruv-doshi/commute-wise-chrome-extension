@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "icons": "node scripts/generate-icons.mjs",
+    "size": "size-limit",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
@@ -14,6 +16,13 @@
     "test:unit": "vitest run --passWithNoTests",
     "test:e2e": "playwright test"
   },
+  "size-limit": [
+    {
+      "path": "dist/assets/index.ts-*.js",
+      "limit": "150 kB",
+      "gzip": true
+    }
+  ],
   "engines": {
     "node": ">=20"
   },
@@ -21,13 +30,21 @@
   "devDependencies": {
     "@crxjs/vite-plugin": "2.0.0-beta.33",
     "@playwright/test": "^1.59.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "@size-limit/file": "^12.1.0",
     "@types/chrome": "^0.1.40",
+    "@types/node": "^25.6.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.1",
     "prettier": "^3.8.3",
+    "size-limit": "^12.1.0",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "idb": "^8.0.3",
+    "lit-html": "^3.3.2"
   }
 }

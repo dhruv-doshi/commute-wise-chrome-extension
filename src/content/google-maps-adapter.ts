@@ -3,7 +3,7 @@
  * If a Maps update breaks things, start here.
  */
 
-import type { MapsAdapter, RouteInfo, Viewport } from '../shared/types';
+import type { LatLng, MapsAdapter, RouteInfo, Viewport } from '../shared/types';
 
 // Isolate every Maps-specific selector here.
 const SEL = {
@@ -17,26 +17,53 @@ const OVERLAY_ID = 'rnr-overlay';
 // URL parsing — primary source of route + viewport data
 // ---------------------------------------------------------------------------
 
+/**
+ * Parses the Google Maps `data=` parameter to extract origin/destination LatLng.
+ * Pattern: `!1d<lng>!2d<lat>` appears once per waypoint (origin first, dest second).
+ * Exported for unit tests.
+ */
+export function parseDataParamCoords(dataParam: string): [LatLng, LatLng] | null {
+  const RE = /!1d(-?[\d.]+)!2d(-?[\d.]+)/g;
+  const matches: LatLng[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = RE.exec(dataParam)) !== null) {
+    matches.push({ lat: Number(m[2]), lng: Number(m[1]) });
+  }
+  if (matches.length < 2) return null;
+  return [matches[0], matches[matches.length - 1]];
+}
+
 /** Exported for unit tests. */
 export function parseDirectionsUrl(url: string): RouteInfo | null {
-  let pathname: string;
+  let parsed: URL;
   try {
-    pathname = new URL(url).pathname;
+    parsed = new URL(url);
   } catch {
     return null;
   }
 
-  // /maps/dir/<origin>/<destination>/@<lat>,<lng>,<zoom>z[/...]
-  const m = pathname.match(
-    /^\/maps\/dir\/([^/@]+)\/([^/@]+)\/@(-?[\d.]+),(-?[\d.]+),([\d.]+)z/,
+  // Non-greedy match so via:waypoint segments in the middle are captured too.
+  // Pattern: /maps/dir/<one-or-more-segments>/@lat,lng,zoomz
+  const m = parsed.pathname.match(
+    /^\/maps\/dir\/(.+?)\/@(-?[\d.]+),(-?[\d.]+),([\d.]+)z/,
   );
   if (!m) return null;
 
   const decode = (s: string) => decodeURIComponent(s.replace(/\+/g, ' ')).trim();
+
+  // First segment = origin, last segment = destination; everything in between is via points.
+  const segments = m[1].split('/').map(decode).filter(Boolean);
+  if (segments.length < 2) return null;
+
+  const dataParam = parsed.searchParams.get('data') ?? parsed.pathname.match(/\/data=([^?]+)/)?.[1] ?? '';
+  const coords = parseDataParamCoords(dataParam);
+
   return {
-    origin: decode(m[1]),
-    destination: decode(m[2]),
-    viewportHash: `${m[3]},${m[4]},${m[5]}`,
+    origin: segments[0],
+    destination: segments[segments.length - 1],
+    viewportHash: `${m[2]},${m[3]},${m[4]}`,
+    originLatLng: coords?.[0],
+    destinationLatLng: coords?.[1],
   };
 }
 
@@ -52,32 +79,6 @@ export function parseViewport(url: string): Viewport | null {
   const m = pathname.match(/@(-?[\d.]+),(-?[\d.]+),([\d.]+)z/);
   if (!m) return null;
   return { lat: Number(m[1]), lng: Number(m[2]), zoom: Number(m[3]) };
-}
-
-// ---------------------------------------------------------------------------
-// History API watcher
-// ---------------------------------------------------------------------------
-
-function watchHistory(onChange: () => void): () => void {
-  const origPush = history.pushState.bind(history);
-  const origReplace = history.replaceState.bind(history);
-
-  history.pushState = function (...args) {
-    origPush(...args);
-    onChange();
-  };
-  history.replaceState = function (...args) {
-    origReplace(...args);
-    onChange();
-  };
-
-  window.addEventListener('popstate', onChange);
-
-  return () => {
-    history.pushState = origPush;
-    history.replaceState = origReplace;
-    window.removeEventListener('popstate', onChange);
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -143,6 +144,7 @@ export function createMapsAdapter(): MapsAdapter {
   const viewportListeners = new Set<(v: Viewport) => void>();
 
   let lastRouteHash: string | null = null;
+  let lastRoute: RouteInfo | null = null;
   let overlayEl: HTMLElement | null = null;
 
   const emitViewport = makeViewportEmitter((vp) => {
@@ -153,10 +155,17 @@ export function createMapsAdapter(): MapsAdapter {
   function onUrlChange() {
     const url = location.href;
     const route = parseDirectionsUrl(url);
-    const hash = route ? `${route.origin}|${route.destination}` : null;
+    // Include rounded viewport lat/lng (1° precision ≈ 111 km) so that routes in
+    // different cities never collide even when origin/destination text is identical.
+    const vpParts = route?.viewportHash.split(',');
+    const cityVp = vpParts
+      ? `${Math.round(Number(vpParts[0]))}|${Math.round(Number(vpParts[1]))}`
+      : '';
+    const hash = route ? `${route.origin}|${route.destination}|${cityVp}` : null;
 
     if (hash !== lastRouteHash) {
       lastRouteHash = hash;
+      lastRoute = route;
       routeListeners.forEach((cb) => cb(route));
       // Dispatch for E2E tests to observe
       window.dispatchEvent(new CustomEvent('rnr:routechange', { detail: route }));
@@ -165,9 +174,7 @@ export function createMapsAdapter(): MapsAdapter {
     emitViewport();
   }
 
-  const stopHistory = watchHistory(onUrlChange);
-  window.addEventListener('pagehide', stopHistory, { once: true });
-  // Fire once for the current URL (page may already show a route on load)
+  // Read the route once from the current URL on load.
   onUrlChange();
 
   // Lazily mount the overlay (Maps may not be fully rendered yet)
@@ -196,6 +203,8 @@ export function createMapsAdapter(): MapsAdapter {
   return {
     onRouteChange(cb) {
       routeListeners.add(cb);
+      // Replay current route so listeners registered after page-load still fire.
+      if (lastRouteHash !== null) cb(lastRoute);
       return () => routeListeners.delete(cb);
     },
     onViewportChange(cb) {
@@ -203,10 +212,16 @@ export function createMapsAdapter(): MapsAdapter {
       return () => viewportListeners.delete(cb);
     },
     getOverlayContainer() {
-      return ensureOverlay() ?? (() => { throw new Error('[RNR] overlay container not ready'); })();
+      return ensureOverlay();
     },
     getDirectionsSidebar() {
       return document.querySelector<HTMLElement>(SEL.sidebar);
+    },
+    refresh() {
+      // Force re-read of the current URL — used by the Reload button so the
+      // extension picks up a route the user changed in Maps since last load.
+      lastRouteHash = null; // clear dedup so the current URL always fires
+      onUrlChange();
     },
     probe() {
       if (!document.querySelector(SEL.mapRoot)) {

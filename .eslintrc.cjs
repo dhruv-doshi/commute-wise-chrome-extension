@@ -6,4 +6,7 @@ module.exports = {
   env: { browser: true, es2022: true, webextensions: true, node: true },
   parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
   ignorePatterns: ['dist/', 'node_modules/', '*.cjs'],
+  rules: {
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+  },
 };

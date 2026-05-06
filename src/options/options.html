@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rain-N-Route — Options</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      color: #1a1a1a;
+      background: #f9fafb;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    h2 { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+    .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 28px; }
+    label { display: block; font-weight: 500; margin-bottom: 6px; }
+    .hint { font-size: 12px; color: #9ca3af; margin-bottom: 10px; }
+    .input-row { display: flex; gap: 8px; }
+    input[type="password"], textarea, select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      background: #fff;
+      color: #1a1a1a;
+    }
+    input[type="password"] { flex: 1; font-family: monospace; }
+    select { cursor: pointer; }
+    input:focus, textarea:focus, select:focus { border-color: #3b82f6; }
+    textarea { width: 100%; resize: vertical; font-family: monospace; font-size: 12px; }
+    button {
+      padding: 8px 16px;
+      border: none; border-radius: 8px;
+      cursor: pointer; font-size: 14px; font-weight: 500;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-danger { background: #fee2e2; color: #dc2626; }
+    .btn-danger:hover { background: #fecaca; }
+    .status {
+      margin-top: 10px; font-size: 13px; min-height: 20px;
+      border-radius: 6px; padding: 6px 10px; display: none;
+    }
+    .status.ok      { background: #d1fae5; color: #065f46; display: block; }
+    .status.err     { background: #fee2e2; color: #991b1b; display: block; }
+    .status.testing { background: #eff6ff; color: #1e40af; display: block; }
+    .status.saved   { background: #d1fae5; color: #065f46; display: block; }
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+    .key-display {
+      font-family: monospace; font-size: 13px; color: #374151;
+      background: #f3f4f6; border-radius: 6px; padding: 6px 10px;
+      margin-top: 8px; word-break: break-all;
+    }
+    .key-display.empty { color: #9ca3af; font-family: inherit; font-style: italic; }
+    .row-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .radio-group { display: flex; gap: 16px; }
+    .radio-option { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .radio-option input { cursor: pointer; }
+    .field { margin-bottom: 16px; }
+    a { color: #3b82f6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Rain-N-Route Maps Lens</h1>
+    <p class="subtitle">Settings</p>
+
+    <!-- API Key -->
+    <h2>OpenWeatherMap API Key</h2>
+    <p class="hint">
+      Free tier — get yours at
+      <a href="https://openweathermap.org/api" target="_blank" rel="noopener">openweathermap.org</a>.
+    </p>
+    <div class="input-row">
+      <input id="api-key" type="password" placeholder="Paste your OWM API key here" autocomplete="off" />
+      <button class="btn-primary" id="btn-save">Save &amp; Test</button>
+    </div>
+    <div id="key-status" class="status"></div>
+    <label style="margin-top:12px;">Current key</label>
+    <div id="key-display" class="key-display empty">No key saved</div>
+    <div class="row-actions">
+      <button class="btn-danger btn-sm" id="btn-clear">Remove key</button>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Display settings -->
+    <h2>Display</h2>
+
+    <div class="field">
+      <label>Temperature units</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="units" value="metric" id="units-metric" />
+          °C (metric)
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="units" value="imperial" id="units-imperial" />
+          °F (imperial)
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="min-severity">Minimum severity to show overlay icons</label>
+      <p class="hint">Icons below this threshold are hidden on the map.</p>
+      <select id="min-severity">
+        <option value="low">All (low+)</option>
+        <option value="medium" selected>Moderate+</option>
+        <option value="high">High+</option>
+        <option value="extreme">Severe only</option>
+      </select>
+    </div>
+
+    <button class="btn-primary btn-sm" id="btn-save-display">Save display settings</button>
+    <div id="display-status" class="status"></div>
+
+    <hr class="divider" />
+
+    <!-- Hotspots -->
+    <h2>Hotspots <span style="font-weight:400;color:#9ca3af;font-size:11px;">optional</span></h2>
+    <p class="hint">
+      One per line: <code>lat,lng,label</code> — e.g. <code>12.97,77.59,Bangalore</code><br>
+      The extension will always fetch weather for these points, even without a route.
+    </p>
+    <div class="field">
+      <textarea id="hotspots" rows="4" placeholder="12.97,77.59,Bangalore&#10;19.07,72.87,Mumbai"></textarea>
+    </div>
+    <button class="btn-primary btn-sm" id="btn-save-hotspots">Save hotspots</button>
+    <div id="hotspots-status" class="status"></div>
+  </div>
+
+  <script type="module" src="./options.ts"></script>
+</body>
+</html>
