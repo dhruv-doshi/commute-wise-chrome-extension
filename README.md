@@ -74,3 +74,10 @@ See [`RELEASING.md`](./RELEASING.md) for the step-by-step Chrome Web Store submi
 ## License
 
 [MIT](./LICENSE) © 2026 Dhruv Doshi
+
+
+---
+
+## About
+
+Built by [Dhruv Doshi](https://dhruvdoshi.vercel.app) — see more projects on the [portfolio](https://dhruvdoshi.vercel.app/projects) or connect on [LinkedIn](https://www.linkedin.com/in/dhruvdoshi/).
